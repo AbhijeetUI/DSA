@@ -72,4 +72,3 @@ We use **Big O Notation** to describe the worst-case scenario.
 
 ---
 
-Let me know if you’d like me to turn this into a proper markdown file or add more visuals to explain search trees or log-based reductions.
