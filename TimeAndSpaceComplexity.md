@@ -72,3 +72,136 @@ We use **Big O Notation** to describe the worst-case scenario.
 
 ---
 
+## 📌 Common Time Complexities
+
+### 🟢 **O(1) – Constant Time**
+
+> The algorithm runs in the same time regardless of input size.
+
+```js
+function getFirstElement(arr) {
+  return arr[0];
+}
+```
+
+---
+
+### 🔵 **O(n) – Linear Time**
+
+> Time grows directly with input size.
+
+```js
+for (let i = 0; i < n; i++) {
+  console.log(i);
+}
+```
+
+---
+
+### 🟡 **O(n²) – Quadratic Time**
+
+> Nested loops over the input. Time grows proportionally to the square of the input.
+
+```js
+for (let i = 0; i < n; i++) {
+  for (let j = 0; j < n; j++) {
+    console.log(j);
+  }
+  console.log(i);
+}
+// Outer loop runs n times, inner loop runs n times = n * n = O(n²)
+```
+
+---
+
+### 🔷 **O(n log n) – Linearithmic Time**
+
+> Divide-and-conquer algorithms like Merge Sort or Quick Sort.
+
+```js
+// Conceptual Example: Merge Sort
+function mergeSort(arr) {
+  if (arr.length <= 1) return arr;
+
+  const mid = Math.floor(arr.length / 2);
+  const left = mergeSort(arr.slice(0, mid));
+  const right = mergeSort(arr.slice(mid));
+
+  return merge(left, right);
+}
+// Recursion (log n levels) + merging (n work at each level) = O(n log n)
+```
+
+---
+
+### 🔶 **O(2ⁿ) – Exponential Time**
+
+> Algorithm runtime doubles with each additional input. Common in brute-force recursion.
+
+```js
+function fibonacci(n) {
+  if (n <= 1) return n;
+  return fibonacci(n - 1) + fibonacci(n - 2);
+}
+// Very inefficient for large n due to repeated subproblems
+```
+
+---
+
+## 📈 Summary Table
+
+| Time Complexity | Description  | Example Use Case                  |
+| --------------- | ------------ | --------------------------------- |
+| `O(1)`          | Constant     | Array access by index             |
+| `O(n)`          | Linear       | Linear search                     |
+| `O(n²)`         | Quadratic    | Bubble sort, nested loops         |
+| `O(n log n)`    | Linearithmic | Merge sort, efficient sorting     |
+| `O(2ⁿ)`         | Exponential  | Recursive Fibonacci, backtracking |
+
+## Efficiency
+
+- O(1) > O(log n) > O(n) > O(n log n) > O(n²) > O(2ⁿ) > O(n1)
+
+# Real time execution
+
+- at the time of solution we can explain the time complexity of our solution and can improve to the btter complexity.
+
+## Space complexity
+
+- how much extra space you're using
+
+```js
+
+let's identify the space comlexity from below program
+
+findMaximumNumber(arr){
+  let max = arr[0]; // using 1 variable having time complexity is O(1)
+  for(let i = 0;i<n;i++){ // here loop is running n time, so O(n)
+    if(arr[i] > max){
+      max = arr[i];
+    }
+  }
+  return max;
+}
+
+// here wr're using 2 extra spaces for variable max and i
+```
+
+- if there is an input array of size(n)
+- if we're using extra variable let say 1,2,3,....=> O(1) => time complexity and space complexity will be O(n2)
+
+```js
+for(1...n){
+  for(1...n){
+    //this inner loop runs n times
+  }
+  //this outer loop runs n times
+}
+for(1...n){
+  //this loop runs n times
+}
+
+// so time complexity => O(n² + n) => O(n²) => but here we can ignore lower value n, bcoz it does not matter
+// O(n3 + n + n2) => O(n3)
+// O(n2 + 2n) => O(n2)
+```
