@@ -72,7 +72,6 @@ async function promiseAllWithConcurrencyLimit(tasks, limit) {
        * CONCURRENCY CONTROL:
        * If executing array reaches limit, BLOCK until one task finishes
        * Promise.race() returns when ANY promise settles (success/error)
-       * This creates a "backpressure" mechanism
        */
       if (executing.length >= limit) {
         await Promise.race(executing);
