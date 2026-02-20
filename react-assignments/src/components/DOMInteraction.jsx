@@ -57,13 +57,14 @@ function DOMInteraction() {
     <div
       ref={containerRef}
       style={{
-        width: "500px",
-        height: "500px",
+        width: "200px",
+        height: "200px",
         border: "2px solid #333",
         position: "relative",
         overflow: "hidden",
         backgroundColor: "#f5f5f5",
         cursor: "none",
+        marginTop: "10px",
       }}
     >
       <div
