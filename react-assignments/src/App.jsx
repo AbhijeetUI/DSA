@@ -8,44 +8,43 @@ import MuiltiStepForm from "./components/MuiltiStepForm";
 import Posts from "./components/Posts";
 import ProductsPage from "./components/ProductsPage";
 import MortgageCalculator from "./components/MortgageCalculator";
+import LikeButton from "./components/LikeButton";
+import WindowResize from "./components/WindowResize";
+import SmartTable from "./components/SmartTable";
 
 function App() {
+  const navLinks = [
+    { path: "/", label: "Autocomplete" },
+    { path: "/box-coloring-game", label: "Box Coloring Game" },
+    { path: "/dom-interaction", label: "DOM Interaction" },
+    { path: "/multistep-form", label: "MultiStep Form" },
+    { path: "/posts", label: "Posts" },
+    { path: "/products-page", label: "Products" },
+    { path: "/mortgage-calculator", label: "Mortgage Calculator" },
+    { path: "/like-button", label: "Like Button" },
+    { path: "/window-resize", label: "Window Resize" },
+    { path: "/smart-table", label: "Smart Table" },
+  ];
   return (
     <BrowserRouter>
-      <nav style={{ padding: "10px", borderBottom: "1px solid black" }}>
-        <Link to="/" style={{ marginRight: "20px" }}>
-          Autocomplete
-        </Link>
-        <Link to="/dashboard" style={{ marginRight: "20px" }}>
-          Dashboard
-        </Link>
-        <Link to="/box-coloring-game" style={{ marginRight: "20px" }}>
-          Box Coloring Game
-        </Link>
-        <Link to="/dom-interaction" style={{ marginRight: "20px" }}>
-          DOM Interaction
-        </Link>
-        <Link to="/multistep-form" style={{ marginRight: "20px" }}>
-          MultiStep Form
-        </Link>
-        <Link to="/posts" style={{ marginRight: "20px" }}>
-          Posts
-        </Link>
-        <Link to="/products-page" style={{ marginRight: "20px" }}>
-          Products Page
-        </Link>
-        <Link to="/mortgage-calculator" style={{ marginRight: "20px" }}>
-          Mortgage calculator
-        </Link>
+      <nav className="navbar">
+        {navLinks.map((link) => (
+          <Link key={link.path} to={link.path} className="nav-item">
+            {link.label}
+          </Link>
+        ))}
       </nav>
       <Routes>
         <Route path="/" element={<AutoComplete />} />
+        <Route path="/smart-table" element={<SmartTable />} />
         <Route path="/box-coloring-game" element={<BoxColoringGame />} />
         <Route path="/dom-interaction" element={<DOMInteraction />} />
         <Route path="/multistep-form" element={<MuiltiStepForm />} />
         <Route path="/posts" element={<Posts />} />
         <Route path="/products-page" element={<ProductsPage />} />
         <Route path="/mortgage-calculator" element={<MortgageCalculator />} />
+        <Route path="/like-button" element={<LikeButton />} />
+        <Route path="/window-resize" element={<WindowResize />} />
       </Routes>
     </BrowserRouter>
   );
