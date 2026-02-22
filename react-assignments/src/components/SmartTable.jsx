@@ -26,13 +26,18 @@ const SmartTable = () => {
     let processedData = tblData.data.slice(0, pageSize);
 
     // 2. Filter
-    processedData.filter((item) =>
-      columns.some(
-        (col) =>
+    processedData = processedData.filter((item) => {
+      return columns.some((col) => {
+        // 1. Log the current column and the value being checked
+
+        const isMatch =
           col.filterable &&
-          String(item[col.key]).toLowerCase().includes(inputVal.toLowerCase()),
-      ),
-    );
+          item[col.key] != null && // Safety check for null/undefined
+          String(item[col.key]).toLowerCase().includes(inputVal.toLowerCase());
+
+        return isMatch;
+      });
+    });
 
     // 3. Sort (Applied before pagination)
     if (sortConfig.key) {
