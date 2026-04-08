@@ -1,0 +1,53 @@
+.formWrapper{
+    max-width: 500px;
+    text-align: left;
+}
+
+.termsAccepted-wrapper {
+    display: flex;
+    align-items: baseline; /* Better alignment for checkboxes */
+    justify-content: flex-start;
+    gap: 8px; /* Adds space between checkbox and text */
+
+    > input {
+        width: auto; /* Removes the colon that caused the error */
+        margin: 0;   /* Resets default browser margins */
+    }
+}
+
+.dropdown-wrapper {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+  gap: 5px;
+
+  .form-label {
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+  }
+
+  select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+    cursor: pointer;
+
+    &.input-error {
+      border-color: #ff4d4f;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: #40a9ff;
+    }
+  }
+
+  .error-text {
+    color: #ff4d4f;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+}

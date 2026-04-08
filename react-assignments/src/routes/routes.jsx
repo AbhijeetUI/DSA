@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import React, { Suspense, lazy } from "react";
 import WindowResize from "../components/WindowResize";
 import SmartTable from "../components/SmartTable";
+import ConfigDrivenForm from "../components/ConfigDrivenForm";
 
 // Lazy imports
 const AutoComplete = lazy(() => import("../components/AutoComplete"));
@@ -54,6 +55,7 @@ export default function AppRoutes() {
           <Route path="/posts" element={<Posts />} />
           <Route path="/products-page" element={<ProductsPage />} />
           <Route path="/window-resize" element={<WindowResize />} />
+          <Route path="/config-driven-form" element={<ConfigDrivenForm />} />
         </Routes>
       </Suspense>
     </Router>

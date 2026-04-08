@@ -11,6 +11,8 @@ import MortgageCalculator from "./components/MortgageCalculator";
 import LikeButton from "./components/LikeButton";
 import WindowResize from "./components/WindowResize";
 import SmartTable from "./components/SmartTable";
+import ConfigDrivenForm from "./components/ConfigDrivenForm";
+import LiveChat from "./components/LiveChat";
 
 function App() {
   const navLinks = [
@@ -24,6 +26,8 @@ function App() {
     { path: "/like-button", label: "Like Button" },
     { path: "/window-resize", label: "Window Resize" },
     { path: "/smart-table", label: "Smart Table" },
+    { path: "/config-driven-form", label: "Config Driven" },
+    { path: "/live-chat", label: "Live Chat" },
   ];
   return (
     <BrowserRouter>
@@ -36,6 +40,7 @@ function App() {
       </nav>
       <Routes>
         <Route path="/" element={<AutoComplete />} />
+        <Route path="/live-chat" element={<LiveChat />} />
         <Route path="/smart-table" element={<SmartTable />} />
         <Route path="/box-coloring-game" element={<BoxColoringGame />} />
         <Route path="/dom-interaction" element={<DOMInteraction />} />
@@ -45,6 +50,7 @@ function App() {
         <Route path="/mortgage-calculator" element={<MortgageCalculator />} />
         <Route path="/like-button" element={<LikeButton />} />
         <Route path="/window-resize" element={<WindowResize />} />
+        <Route path="/config-driven-form" element={<ConfigDrivenForm />} />
       </Routes>
     </BrowserRouter>
   );
