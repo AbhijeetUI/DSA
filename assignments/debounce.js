@@ -20,8 +20,12 @@ ALGORITHM:
 */
 
 function debounce(func, wait, immediate = false) {
+  // timeout acts as a private variable. 
+  // Because the inner function forms a closure over timeout, it remembers the timer state across multiple, rapid event triggers.
   let timeout = null;
 
+  // A closure is mandatory in a debounce function because it provides the inner function with a persistent memory.
+  // If you did not use a closure, the timeout variable would reset to null on every single keystroke and completely lose track of the previous timer, making it impossible to cancel it.
   return function (...args) {
     // Clear the previous timeout if it exists
     if (timeout) {
@@ -129,4 +133,8 @@ KEY POINTS:
 4. Each new call resets the timer (clears previous timeout)
 5. Arrow functions with "this" context need special handling
 
+How the Closure Solves This:debounce() runs exactly once when you set up your event listener.
+It creates the timeout variable in its scope and returns the inner function.Because the inner function references timeout, 
+JavaScript keeps the outer scope alive in memory. This link is the closure.Every time the user types, the inner function runs again. 
+closure looks back at that same, shared memory space to find the active timeout, cancels it via clearTimeout(timeout), and starts a fresh one.
 */
