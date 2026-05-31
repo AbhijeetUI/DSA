@@ -29,6 +29,7 @@ function debounce(func, wait, immediate = false) {
     }
 
     // If immediate flag is true, execute function on the leading edge
+    // Executes the function instantly on the very first keystroke or click, then blocks subsequent calls until the user stops for the duration of wait.
     if (immediate && !timeout) {
       func.apply(this, args);
     }
