@@ -11,6 +11,7 @@ function customFlat(arr, depth = 1) {
     if (Array.isArray(arr[i]) && depth > 0) {
       // Recursively flatten with decreased depth
       res = res.concat(customFlat(arr[i], depth - 1));
+      // res.push(...customFlat(arr[i], depth - 1));
     } else {
       res.push(arr[i]);
     }
