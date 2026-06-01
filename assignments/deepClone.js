@@ -18,235 +18,80 @@ ALGORITHM:
 7. Return cloned object
 */
 
+/*
+The Easy-to-Remember Analogy: "The Blueprint Room"
+Step 1: Check if it's too simple to clone (Primitives)
+Step 2: Check if it's a special item (Dates & RegEx)
+Step 3: Check if we've already cloned it (Circular references / WeakMap)
+Step 5: Unbox and clone everything inside (Recursion loop)
+*/
+// 1. The Deep Clone Implementation
 function deepClone(value, map = new WeakMap()) {
-  // STEP 1: Handle primitives (immutable, can return directly)
-  if (value === null || typeof value !== "object") {
+  // Base case: Handle primitives and null
+  // "First, I handle my base case. If the value is a primitive (like a string, number, or boolean) or if it's null, it's already copied by value in JavaScript. I can just return it immediately."
+  if (value === null || typeof value !== 'object') {
     return value;
   }
-
-  // Handle primitives that are objects (Symbol is not)
-  if (typeof value === "symbol") {
-    return Symbol(value.description);
-  }
-
-  // STEP 2: Check if we've already cloned this object (circular reference)
-  if (map.has(value)) {
-    return map.get(value); // Return cached clone
-  }
-
-  // STEP 3: Handle different object types
-
-  // Date object
+  // Dates and RegExp are objects and we can not loop through them normally, so we create new copies using their original values.
+  // Handle Dates
   if (value instanceof Date) {
-    // typeof new Date() is "object" (not specific), instanceOf is more specific
-    return new Date(value.getTime()); // create new copy and reference, with same date
+    return new Date(value.getTime());
   }
-
-  // RegExp object
+  
+  // Handle Regular Expressions
   if (value instanceof RegExp) {
-    const flags = value.flags;
-    const cloned = new RegExp(value.source, flags);
-    cloned.lastIndex = value.lastIndex;
-    return cloned;
+    return new RegExp(value.source, value.flags);
   }
 
-  // Map object
-  if (value instanceof Map) {
-    const clonedMap = new Map();
-    map.set(value, clonedMap); // Store before processing entries
-    for (let [key, val] of value) {
-      clonedMap.set(deepClone(key, map), deepClone(val, map));
-    }
-    return clonedMap;
+  // Handle Circular References
+  /* Every RegExp object is made up of 2 distinct parts: 
+      * pattern and modifiers *
+     - value.source(pattern) = the source property retunrs string contains the text of RegEx pattern without the forwarward slashes
+       Ex.: /heelo/gi => value.source evaluates to string = "hello"
+     - value.flags(modifiers) = the flags property returns string which contains allactive modifiers attached to that regular expression
+       Ex.: hello/gi evaluates to "gi" where g for Global)finds all matches) and i for case-insensitive(match "HELLO", "Hello","hello", etc.).
+      
+   */
+  if (map.has(value)) {
+    return map.get(value);
   }
 
-  // Set object
-  if (value instanceof Set) {
-    const clonedSet = new Set();
-    map.set(value, clonedSet); // Store before processing values
-    for (let val of value) {
-      clonedSet.add(deepClone(val, map));
-    }
-    return clonedSet;
-  }
+  // Initialize clone structure and track it
+  const clone = Array.isArray(value) ? [] : {};
+  map.set(value, clone);
 
-  // Array
-  if (Array.isArray(value)) {
-    const clonedArray = [];
-    map.set(value, clonedArray); // Store BEFORE recursion to handle circular refs
-    for (let i = 0; i < value.length; i++) {
-      clonedArray[i] = deepClone(value[i], map);
-    }
-    return clonedArray;
-  }
-
-  // STEP 4: Handle plain objects
-  // Create new object with same prototype
-  const clonedObj = Object.create(Object.getPrototypeOf(value));
-
-  // STEP 5: Store in map BEFORE recursing (critical for circular refs)
-  // This prevents infinite loops when object references itself
-  map.set(value, clonedObj);
-
-  // STEP 6: Clone all properties (including symbols and non-enumerable)
-  // Using getOwnPropertyNames to get all properties including non-enumerable
-  const keys = Object.getOwnPropertyNames(value);
-  const symbols = Object.getOwnPropertySymbols(value);
-  const allKeys = [...keys, ...symbols];
-
-  for (let key of allKeys) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key);
-
-    if (descriptor.value !== undefined) {
-      // For data properties, recursively clone
-      Object.defineProperty(clonedObj, key, {
-        value: deepClone(descriptor.value, map),
-        writable: descriptor.writable,
-        enumerable: descriptor.enumerable,
-        configurable: descriptor.configurable,
-      });
-    } else {
-      // For accessor properties, copy as-is
-      Object.defineProperty(clonedObj, key, descriptor);
+  // Recursively clone keys
+  for (const key in value) {
+    if (value.hasOwnProperty(key)) {
+      clone[key] = deepClone(value[key], map);
     }
   }
 
-  return clonedObj;
+  return clone;
 }
 
-/*
-TEST CASE 1: Basic nested object
-*/
-console.log("--- TEST 1: Basic Nested Object ---");
-const original1 = {
-  a: 1,
-  b: { c: 2 },
-  d: [11, 7],
+// 2. Input Setup (Complex Original Object)
+const original = {
+  name: "Atlassian",
+  skills: ["JavaScript", ["React", "Node"]], 
+  meta: { id: 101, status: "active" },      
+  createdAt: new Date('2026-05-31'),         
+  pattern: /[a-z]+/gi,                       
 };
 
-const copy1 = deepClone(original1);
-console.log("Original:", original1);
-console.log("Clone:", copy1);
-console.log("copy1 !== original1:", copy1 !== original1); // true
-console.log("copy1.b !== original1.b:", copy1.b !== original1.b); // true
-console.log("copy1.d !== original1.d:", copy1.d !== original1.d); // true
+// Inject the circular reference
+original.circularReference = original;
 
-/*
-TEST CASE 2: Circular reference (KEY TEST)
-*/
-console.log("\n--- TEST 2: Circular Reference ---");
-const original2 = {
-  a: 1,
-  b: { c: 2 },
-  d: [11, 7],
-};
-original2.self = original2; // Circular reference!
+// 3. Perform the Deep Clone
+const copy = deepClone(original);
 
-const copy2 = deepClone(original2);
-console.log("copy2 !== original2:", copy2 !== original2); // true
-console.log("copy2.b !== original2.b:", copy2.b !== original2.b); // true
-console.log("copy2.self === copy2:", copy2.self === copy2); // true (circularity preserved!)
-console.log("copy2.self.self === copy2:", copy2.self.self === copy2); // true
+// 4. Aggressively mutate the copied object
+copy.name = "Google";
+copy.skills[0] = "Python";
+copy.skills[1][0] = "Vue";          // Modify deeply nested array element
+copy.meta.status = "inactive";      // Modify nested object property
+copy.createdAt.setFullYear(2030);   // Modify Date object time
 
-/*
-TEST CASE 3: Complex circular structure
-*/
-console.log("\n--- TEST 3: Complex Circular Structure ---");
-const nodeA = { name: "A", value: 1 };
-const nodeB = { name: "B", value: 2 };
-const nodeC = { name: "C", value: 3 };
-
-nodeA.next = nodeB;
-nodeB.next = nodeC;
-nodeC.next = nodeA; // Circular!
-
-const clonedA = deepClone(nodeA);
-console.log("Original chain: A -> B -> C -> A");
-console.log(
-  "Cloned chain: ",
-  clonedA.name,
-  "->",
-  clonedA.next.name,
-  "->",
-  clonedA.next.next.name,
-  "->",
-  clonedA.next.next.next.name,
-);
-console.log(
-  "All are independent copies:",
-  clonedA !== nodeA && clonedA.next !== nodeB && clonedA.next.next !== nodeC,
-); // true
-
-/*
-TEST CASE 4: Special types (Date, RegExp, Map, Set)
-*/
-console.log("\n--- TEST 4: Special Types ---");
-const original4 = {
-  date: new Date("2024-01-15"),
-  regex: /test/gi,
-  map: new Map([
-    ["key1", "value1"],
-    ["key2", "value2"],
-  ]),
-  set: new Set([1, 2, 3]),
-};
-
-const copy4 = deepClone(original4);
-console.log(
-  "Date cloned:",
-  copy4.date instanceof Date &&
-    copy4.date.getTime() === original4.date.getTime(),
-); // true
-console.log(
-  "RegExp cloned:",
-  copy4.regex instanceof RegExp &&
-    copy4.regex.source === original4.regex.source,
-); // true
-console.log(
-  "Map cloned:",
-  copy4.map instanceof Map && copy4.map.get("key1") === "value1",
-); // true
-console.log("Set cloned:", copy4.set instanceof Set && copy4.set.has(2)); // true
-console.log(
-  "All independent:",
-  copy4.date !== original4.date &&
-    copy4.regex !== original4.regex &&
-    copy4.map !== original4.map &&
-    copy4.set !== original4.set,
-); // true
-
-/*
-TEST CASE 5: Array with circular references
-*/
-console.log("\n--- TEST 5: Array with Circular References ---");
-const original5 = [1, 2, { nested: true }];
-original5.push(original5); // Circular array!
-
-const copy5 = deepClone(original5);
-console.log("Array length:", copy5.length); // 4
-console.log("Last element is array itself:", copy5[3] === copy5); // true
-console.log("copy5 !== original5:", copy5 !== original5); // true
-
-/*
-TEST CASE 6: Memory efficiency - verify no deep cloning issues
-*/
-console.log("\n--- TEST 6: Memory Efficiency ---");
-const largeArray = Array.from({ length: 1000 }, (_, i) => ({
-  id: i,
-  data: "test",
-}));
-const original6 = { data: largeArray };
-original6.self = original6;
-
-const copy6 = deepClone(original6);
-console.log("Large object cloned successfully:", copy6.data.length === 1000); // true
-console.log("Circular ref preserved:", copy6.self === copy6); // true
-console.log(
-  "Independent copies:",
-  copy6 !== original6 && copy6.data !== original6.data,
-); // true
-
-/*
 TIME COMPLEXITY: O(n) where n is total number of properties/elements
 SPACE COMPLEXITY: O(n) for the cloned structure + O(m) for WeakMap where m is number of objects
 
