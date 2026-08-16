@@ -85,3 +85,20 @@ FINAL RESULT:
 - Peak Value: arr[5] = 8
 ================================================================================
 */
+
+function peakElement(arr) {
+  if (arr.length === 0) return -1;
+
+  for (let i = 0; i < arr.length; i++) {
+    const left = i === 0 ? -Infinity : arr[i - 1];
+    const right = i === arr.length - 1 ? -Infinity : arr[i + 1];
+
+    if (arr[i] > left && arr[i] > right) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+console.log(peakElement([1, 2, 4, 5, 7, 8, 3]));
