@@ -534,33 +534,3 @@ _(Ask these back-to-back, out loud, no more than ~20 seconds thinking time each 
 ## Interviewer's Note (meta-level calibration)
 
 A candidate who _only_ nails the rapid-fire round but freezes on Q6, Q8, or Q12 has memorized the notes without internalizing them — that's a signal, not a pass. A candidate who fumbles a rapid-fire definition but reasons correctly through Q6/Q8/Q12 live, out loud, with the right trade-offs, is closer to what a staff/senior hire actually needs to look like day-to-day: someone who can _derive_ the right answer under ambiguity, not just recite one.
-
-# React & Web Performance: Staff Engineer Interview Scenarios
-
-## Scenario 1: The "Unavoidable" INP Spike (Web Vitals)
-
-**Question:**
-A junior engineer pushes a feature where clicking a "Generate Report" button triggers a 5-second API call. They mention the Interaction to Next Paint (INP) score is failing, but claim it's unavoidable because the metric is waiting for the slow network response.
-
-- Explain why the engineer's fundamental understanding of how Chrome measures INP is incorrect.
-- Provide the precise client-side implementation required to immediately mark the interaction as "responded to" and fix the INP score, regardless of the network latency.
-
-**Staff Engineer Answer:**
-
-- **The Misconception:** Chrome does not wait for the 5-second API call to resolve to calculate INP. It strictly measures the time from the user's interaction (e.g., the click) to the _very next visual frame painted to the screen_. If the browser has to wait 5 seconds for the API to return before the UI changes, the INP will rightfully fail.
-- **The Client-Side Fix:** You must provide immediate visual feedback synchronously or within a microtask before yielding to the network request.
-
-  ```javascript
-  const handleGenerateReport = async () => {
-    // 1. Trigger immediate visual change (fixes INP)
-    setButtonState("loading");
-
-    try {
-      // 2. Perform the slow async work in the background
-      const data = await fetchReport();
-      setReportData(data);
-    } finally {
-      setButtonState("idle");
-    }
-  };
-  ```
