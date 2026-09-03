@@ -1,15 +1,38 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Namaste DSA - Data Structures and Algorithms resources">
-    <meta name="author" content="Your Name">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Namaste DSA - Data Structures and Algorithms resources"
+    />
+    <meta name="author" content="Your Name" />
     <title>Namaste DSA</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <!-- Content goes here -->
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <input id="search" placeholder="Type to search..." />
+    <p id="output"></p>
+
+    <script src="./week-4/base/debounce.js"></script>
+    <script>
+      const searchInput = document.getElementById("search");
+      const output = document.getElementById("output");
+
+      const searchHandler = debounce(
+        (event) => {
+          const value = event.target.value;
+
+          console.log("Searching for:", value);
+          output.textContent = `Searching for: ${value}`;
+        },
+        300,
+        true,
+      );
+
+      searchInput.addEventListener("input", searchHandler);
+    </script>
 
     <script src="programming 101/countDigit.js"></script>
     <script src="programming 101/secondLargest.js"></script>
@@ -33,5 +56,5 @@
     <script src="Seraching_Sorting/bubbleSort.js"></script>
     <script src="Seraching_Sorting/selectionSort.js"></script>
     <script src="Seraching_Sorting/mergeSort.js"></script>
-</body>
+  </body>
 </html>
