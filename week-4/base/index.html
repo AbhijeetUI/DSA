@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debounce Demo</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 600px;
+        margin: 40px auto;
+      }
+
+      input {
+        width: 100%;
+        padding: 10px;
+        font-size: 18px;
+      }
+
+      #output {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f3f3f3;
+        white-space: pre-line;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Debounce Demo</h1>
+
+    <p>Type quickly. The API call runs 500ms after you stop typing.</p>
+
+    <input id="searchInput" type="text" placeholder="Search..." />
+
+    <div id="output">Events will appear here...</div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
