@@ -13,11 +13,7 @@ function customFlat(arr, depth = 1) {
 
   for (const item of arr) {
     if (Array.isArray(item) && depth > 0) {
-      // The spread operator converts array elements into function arguments (e.g., push(1, 2, 3...))
-      // JS some cap of numbers which leads to maximum callstack exceeded RangeError
       result.push(...customFlat(item, depth - 1));
-      // creates a brand-new array on every loop step and shallow-copies every item from result and arr.
-      // result = result.concat(customFlat(arr[i], depth - 1));
     } else {
       result.push(item);
     }
