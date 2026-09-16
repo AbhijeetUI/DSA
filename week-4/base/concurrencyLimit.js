@@ -66,19 +66,34 @@ const createDriverTask = (id, delay) => () =>
     }, delay);
   });
 
-// Mocking the tasks array that was missing in the prompt
-const tasks = [
+// Two tasks: run them sequentially by setting the limit to 1
+const sequentialTasks = [
   createDriverTask(1, 1000), // Takes 1s
-  createDriverTask(2, 500), // Takes 0.5s - will finish first
-  createDriverTask(3, 800), // Starts at 0.5s when Task 2 finishes
-  createDriverTask(4, 300), // Starts at 1.0s when Task 1 finishes
+  createDriverTask(2, 500), // Starts only after Task 1 finishes
+];
+
+// Three tasks: run them concurrently by setting the limit to 3
+const concurrentTasks = [
+  createDriverTask(3, 800), // Starts immediately
+  createDriverTask(4, 300), // Starts immediately
+  createDriverTask(5, 600), // Starts immediately
 ];
 
 // Execution
-promiseAllWithConcurrencyLimit(tasks, 2) // Run at most 2 tasks concurrently.
+console.log("Running 2 tasks sequentially (limit = 1)...");
+promiseAllWithConcurrencyLimit(sequentialTasks, 1)
   .then((results) => {
-    console.log("All tasks completed:", results);
+    console.log("Sequential tasks completed:", results);
   })
   .catch((err) => {
-    console.error("Queue failed:", err);
+    console.error("Sequential queue failed:", err);
+  });
+
+console.log("Running 3 tasks concurrently (limit = 3)...");
+promiseAllWithConcurrencyLimit(concurrentTasks, 3)
+  .then((results) => {
+    console.log("Concurrent tasks completed:", results);
+  })
+  .catch((err) => {
+    console.error("Concurrent queue failed:", err);
   });

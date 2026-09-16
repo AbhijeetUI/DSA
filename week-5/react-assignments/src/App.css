@@ -105,6 +105,35 @@ body {
   color: #b91c1c;
 }
 
+.product-card-wrapper{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+.product-card{
+    background: #fff;    
+    padding: 10px;    
+}
+
+.product-title{
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.product-description{
+  margin: 10px;
+  font-size: 14px;
+  text-align: left;
+  line-height: 20px;
+  color:#4b5563;
+}
+
+.product-footer{
+  display: flex;
+  justify-content: space-between;
+}
+
 @media (max-width: 640px) {
   .posts-page {
     padding: 32px 16px;
