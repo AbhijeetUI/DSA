@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import "../src/App.css";
 
 const PAGE_SIZE = 10;
 const API_URL = "https://mockserver.in/fake-api/v1/products";
 
-function InfiniteScroll() {
+export function useInfiniteProducts() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [products, setProducts] = useState([]);
@@ -16,13 +15,17 @@ function InfiniteScroll() {
     isError: false,
   });
 
-  const sentinelRef = useRef(null);
-  const pageCache = useRef(new Map());
-  const previousQueryKeyRef = useRef("");
+  const sentinelRef = useRef(null); // Keeps the bottom sentinel element reference without re-rendering on every scroll event.
+  const pageCache = useRef(new Map()); // Cached page data keyed by query + category + page to avoid duplicate fetches.
+  const previousQueryKeyRef = useRef(""); // Tracks the last query key to detect when a new search/filter reset is needed.
+
+  const normalizedSearch = search.trim().toLowerCase();
+  const queryKey = `${normalizedSearch}|${category}`;
 
   const buildPageKey = (searchText, selectedCategory, currentPage) =>
     `${searchText}|${selectedCategory}|${currentPage}`;
 
+  // Fetch all products once on mount and keep categories ready for the filter dropdown.
   useEffect(() => {
     const controller = new AbortController();
 
@@ -76,8 +79,6 @@ function InfiniteScroll() {
     return () => controller.abort();
   }, []);
 
-  const normalizedSearch = search.trim().toLowerCase();
-
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesSearch =
@@ -89,38 +90,27 @@ function InfiniteScroll() {
     });
   }, [category, normalizedSearch, products]);
 
-  const queryKey = `${normalizedSearch}|${category}`;
-
+  // Reset pagination when the search or category changes, so page 1 always starts fresh for the new result set.
   useEffect(() => {
     if (previousQueryKeyRef.current !== queryKey) {
       previousQueryKeyRef.current = queryKey;
       setPage(1);
       setVisibleProducts([]);
+      pageCache.current.clear();
     }
   }, [queryKey]);
 
-  // “For the current query + category + page,
-  // do I already have the products cached, or do I need to compute and store them?”
-  /*
-  This effect is responsible for:
-    - loading the correct page chunk
-    - reusing cached pages
-    - appending new pages while scrolling
-    - resetting to page 1 on new filter/search
-  */
+  // For the current query/category/page, reuse cached page data if available; otherwise slice the filtered list into a 10-item chunk and cache it.
+  // Dry run: search="Shoes", category="Men", page=2 -> cacheKey="shoes|men|2"; if cached, append that chunk to current visible list; else compute slice(10,20) and save it.
   useEffect(() => {
     if (!filteredProducts.length) {
       return;
     }
 
-    const cacheKey = buildPageKey(normalizedSearch, category, page); // shoes|men|1
-    const cachedPage = pageCache.current.get(cacheKey); // If the page was already loaded earlier, we do not fetch it again.
+    const cacheKey = buildPageKey(normalizedSearch, category, page);
+    const cachedPage = pageCache.current.get(cacheKey);
 
     if (cachedPage) {
-      /*
-       for page 1, replace list with cached page
-       for page 2+, append to the existing list
-      */
       setVisibleProducts((prev) => {
         if (page === 1) {
           return cachedPage;
@@ -136,22 +126,14 @@ function InfiniteScroll() {
       return;
     }
 
-    /*
-    page = 2
-    PAGE_SIZE = 10
-    start = 10
-    slice(10, 20) gives next 10 products 
-    */
     const start = (page - 1) * PAGE_SIZE;
     const currentPageProducts = filteredProducts.slice(
       start,
       start + PAGE_SIZE,
     );
 
-    // Now this page is saved for future reuse.
     pageCache.current.set(cacheKey, currentPageProducts);
 
-    // page 1 reset and later pages append
     setVisibleProducts((prev) => {
       if (page === 1) {
         return currentPageProducts;
@@ -168,6 +150,7 @@ function InfiniteScroll() {
 
   const hasMore = visibleProducts.length < filteredProducts.length;
 
+  // Watch the sentinel element and increase page number when it enters the viewport, which triggers the next batch of items.
   useEffect(() => {
     const target = sentinelRef.current;
 
@@ -190,88 +173,16 @@ function InfiniteScroll() {
     return () => observer.disconnect();
   }, [hasMore, productStatus.isLoading]);
 
-  return (
-    <div className="posts-page">
-      <header className="posts-header">
-        <p className="eyebrow">Catalog</p>
-        <h1>Infinite product search</h1>
-      </header>
-
-      {productStatus.isLoading && products.length === 0 && (
-        <div className="status">Products are loading...</div>
-      )}
-
-      {productStatus.isError && (
-        <div className="status error" role="alert">
-          Failed to load products.
-        </div>
-      )}
-
-      <section className="product-toolbar">
-        <label className="search-field">
-          <span>Search products</span>
-          <input
-            type="text"
-            placeholder="Search by product name..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </label>
-
-        <label className="category-field">
-          <span>Category</span>
-          <select
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-          >
-            <option value="">All categories</option>
-            {categories.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </label>
-      </section>
-
-      <section className="product-card-wrapper">
-        {visibleProducts.length === 0 && !productStatus.isLoading ? (
-          <div>No products found...</div>
-        ) : (
-          visibleProducts.map((product) => (
-            <article className="product-card" key={product.id}>
-              <span className="product-title">{product.title}</span>
-              <p className="product-description">{product.description}</p>
-              <img
-                src={product.images?.[0]}
-                width={250}
-                height={250}
-                alt={product.title}
-              />
-              <div className="product-footer">
-                <span className="product-category">
-                  <strong>Category: </strong>
-                  {product.category}
-                </span>
-                <span className="product-price">
-                  <strong>Price: </strong>
-                  {product.price}
-                </span>
-              </div>
-            </article>
-          ))
-        )}
-      </section>
-
-      {hasMore && (
-        <div ref={sentinelRef} aria-hidden="true" style={{ height: "1px" }} />
-      )}
-
-      {!hasMore && visibleProducts.length > 0 && (
-        <div className="status">You have reached the end of the results.</div>
-      )}
-    </div>
-  );
+  return {
+    search,
+    setSearch,
+    category,
+    setCategory,
+    categories,
+    visibleProducts,
+    sentinelRef,
+    productStatus,
+    hasMore,
+    filteredProducts,
+  };
 }
-
-export default InfiniteScroll;
