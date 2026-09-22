@@ -1,15 +1,16 @@
-import InfiniteScroll from "../components/InfiniteScroll";
-import MultiStepForm from "../components/MultiStepForm";
-import Posts from "../components/Posts";
-import WindowSize from "../components/WindowSize";
+/* import InfiniteScrollRefactored from "../components/InfiniteScrollRefactored";
+import ProductResultsPage from "../components/ProductsPage"; */
+import AutoCompleteList from "../components/AutoCompleteList";
+import AutoCompleteListPractice from "../components/AutoCompleteListPractice";
+import RecursiveReactUI from "../components/RenderUITree";
 
 function App() {
   return (
     <>
-      {/* <Posts /> 
-      <MultiStepForm />
-      <WindowSize />*/}
-      <InfiniteScroll />
+      {/* <ProductResultsPage /> */}
+      <RecursiveReactUI />
+      <AutoCompleteList />
+      <AutoCompleteListPractice />
     </>
   );
 }
