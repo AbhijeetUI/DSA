@@ -10,7 +10,6 @@ function AutoCompleteListPractice() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLoading, setLoading] = useState(false);
   const inputRef = useRef(null);
-
   const trimmedQuery = search.trim().toLowerCase();
   useEffect(() => {
     if (suggestionCache.has(trimmedQuery)) {
@@ -77,7 +76,6 @@ function AutoCompleteListPractice() {
       <div>Autocomplete list</div>
       <div>Start typing</div>
       {console.log(isDropdownOpen)}
-
       <input
         type="text"
         ref={inputRef}
