@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "../src/App.css";
 import { COUNTRIES } from "../src/constants";
+import useFetchSharable from "../hooks/useFetchSharable";
 
 const suggestionCache = new Map();
 
@@ -11,6 +12,10 @@ function AutoCompleteList() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef(null);
+
+  const { data, loading, error } = useFetchSharable(
+    "https://jsonplaceholder.typicode.com/posts",
+  );
 
   const fetchSuggestions = useCallback(async (term) => {
     const trimmedQuery = term.trim();
@@ -142,6 +147,7 @@ function AutoCompleteList() {
   return (
     <div className="autocomplete-list-wrapper">
       <h3>Autocomplete</h3>
+      {console.log("#shareable hook from component 1: ", data, loading, error)}
       <div className="autocomplete-field">
         <input
           ref={inputRef}
@@ -165,7 +171,7 @@ function AutoCompleteList() {
           aria-autocomplete="list"
         />
 
-        {isLoading && <div className="autocomplete-status">Loading...</div>}
+        {loading && <div className="autocomplete-status">Loading...</div>}
 
         {isDropdownOpen && suggestions.length > 0 && (
           <ul

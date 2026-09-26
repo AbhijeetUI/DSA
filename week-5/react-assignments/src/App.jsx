@@ -7,18 +7,20 @@ import InfiniteScroll from "../components/InfiniteScroll";
 import MultiStepForm from "../components/MultiStepForm";
 import Posts from "../components/Posts";
 import WindowSize from "../components/WindowSize";
+import ProductCatalog from "../components/ProductsCatalog";
 
 function App() {
   return (
     <>
       {/* <ProductResultsPage /> */}
-      <RecursiveReactUI />
+      {/* <RecursiveReactUI />
       <AutoCompleteList />
       <AutoCompleteListPractice />
+      <InfiniteScroll /> */}
       {/* <Posts /> 
       <MultiStepForm />
       <WindowSize />*/}
-      <InfiniteScroll />
+      <ProductCatalog />
     </>
   );
 }

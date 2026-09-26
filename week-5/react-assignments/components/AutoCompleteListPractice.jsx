@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { COUNTRIES } from "../src/constants";
+import useFetchSharable from "../hooks/useFetchSharable";
 
 const suggestionCache = new Map();
 
@@ -10,7 +11,9 @@ function AutoCompleteListPractice() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLoading, setLoading] = useState(false);
   const inputRef = useRef(null);
-
+  const { data, loading, error } = useFetchSharable(
+    "https://jsonplaceholder.typicode.com/posts",
+  );
   const trimmedQuery = search.trim().toLowerCase();
   useEffect(() => {
     if (suggestionCache.has(trimmedQuery)) {
@@ -77,7 +80,7 @@ function AutoCompleteListPractice() {
       <div>Autocomplete list</div>
       <div>Start typing</div>
       {console.log(isDropdownOpen)}
-
+      {console.log("#shareable hook from component 2: ", data, loading, error)}
       <input
         type="text"
         ref={inputRef}
@@ -99,7 +102,7 @@ function AutoCompleteListPractice() {
         }}
         autoComplete="off"
       />
-      {isLoading && <div>Loading...</div>}
+      {loading && <div>Loading...</div>}
       {canDisplayAutoComplete && (
         <ul className="autocomplete-suggestion">
           {suggestions.map((item, index) => {
