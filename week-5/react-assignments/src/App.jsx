@@ -13,10 +13,9 @@ function App() {
   return (
     <>
       {/* <ProductResultsPage /> */}
-      {/* <RecursiveReactUI />
+      <RecursiveReactUI />
       <AutoCompleteList />
       <AutoCompleteListPractice />
-      <InfiniteScroll /> */}
       {/* <Posts /> 
       <MultiStepForm />
       <WindowSize />*/}
