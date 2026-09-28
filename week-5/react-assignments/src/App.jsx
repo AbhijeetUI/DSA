@@ -8,17 +8,19 @@ import MultiStepForm from "../components/MultiStepForm";
 import Posts from "../components/Posts";
 import WindowSize from "../components/WindowSize";
 import ProductCatalog from "../components/ProductsCatalog";
+import AutoCompleListPriority from "../components/AutoCompleListPriority";
 
 function App() {
   return (
     <>
       {/* <ProductResultsPage /> */}
       <RecursiveReactUI />
+      <AutoCompleListPriority />
       <AutoCompleteList />
-      <AutoCompleteListPractice />
-      {/* <Posts /> 
+      {/*  <AutoCompleteListPractice /> */}
+      {/* <Posts />  */}
       <MultiStepForm />
-      <WindowSize />*/}
+      <WindowSize />
       <ProductCatalog />
     </>
   );
