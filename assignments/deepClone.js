@@ -29,7 +29,7 @@ Step 5: Unbox and clone everything inside (Recursion loop)
 function deepClone(value, map = new WeakMap()) {
   // Base case: Handle primitives and null
   // "First, I handle my base case. If the value is a primitive (like a string, number, or boolean) or if it's null, it's already copied by value in JavaScript. I can just return it immediately."
-  if (value === null || typeof value !== 'object') {
+  if (value === null || typeof value !== "object") {
     return value;
   }
   // Dates and RegExp are objects and we can not loop through them normally, so we create new copies using their original values.
@@ -37,7 +37,7 @@ function deepClone(value, map = new WeakMap()) {
   if (value instanceof Date) {
     return new Date(value.getTime());
   }
-  
+
   // Handle Regular Expressions
   if (value instanceof RegExp) {
     return new RegExp(value.source, value.flags);
@@ -73,10 +73,10 @@ function deepClone(value, map = new WeakMap()) {
 // 2. Input Setup (Complex Original Object)
 const original = {
   name: "Atlassian",
-  skills: ["JavaScript", ["React", "Node"]], 
-  meta: { id: 101, status: "active" },      
-  createdAt: new Date('2026-05-31'),         
-  pattern: /[a-z]+/gi,                       
+  skills: ["JavaScript", ["React", "Node"]],
+  meta: { id: 101, status: "active" },
+  createdAt: new Date("2026-05-31"),
+  pattern: /[a-z]+/gi,
 };
 
 // Inject the circular reference
@@ -88,10 +88,11 @@ const copy = deepClone(original);
 // 4. Aggressively mutate the copied object
 copy.name = "Google";
 copy.skills[0] = "Python";
-copy.skills[1][0] = "Vue";          // Modify deeply nested array element
-copy.meta.status = "inactive";      // Modify nested object property
-copy.createdAt.setFullYear(2030);   // Modify Date object time
+copy.skills[1][0] = "Vue"; // Modify deeply nested array element
+copy.meta.status = "inactive"; // Modify nested object property
+copy.createdAt.setFullYear(2030); // Modify Date object time
 
+/*
 TIME COMPLEXITY: O(n) where n is total number of properties/elements
 SPACE COMPLEXITY: O(n) for the cloned structure + O(m) for WeakMap where m is number of objects
 
