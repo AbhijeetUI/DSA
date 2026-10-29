@@ -85,13 +85,13 @@ The easiest pattern, and one everyone has definitely used.
 4. For any further update, the **client must request again**
 
 **Example: login**
-- The front end takes the user ID and password and sends them to the back end
-- The back end checks them against the database, and sends a response back
+- The front end takes the user ID and password and sends them to the BE
+- The BE checks them against the database, and sends a response back
 - The connection closes
 
 > **Takeaway:** This is the typical and most common client-server interaction.
 
-**Simple example from the session:** the UI does a `fetch('/time')`, and the back end's `/time` API gets the server time, converts it to a string, and sends it back. The client makes a request, the back end gives the time back, and that's it. No further interaction.
+**Simple example from the session:** the UI does a `fetch('/time')`, and the BE's `/time` API gets the server time, converts it to a string, and sends it back. The client makes a request, the BE gives the time back, and that's it. No further interaction.
 
 [Back to top](#system-design-session-guide)
 
@@ -104,7 +104,7 @@ The easiest pattern, and one everyone has definitely used.
 **Best for:** Simple real-time updates, whenever the server cannot push data.
 
 **The problem:**
-- Many times the server **may not have any data** for you. You made a call seeking updates and nothing changed on the back end, so **the call is wasted**
+- Many times the server **may not have any data** for you. You made a call seeking updates and nothing changed on the BE, so **the call is wasted**
 - With millions of users doing this, there can be **high server load**
 - It is all subjective and depends on what other options you had, but in normal terms **polling adds more cost to the overall load**
 
@@ -119,7 +119,7 @@ setInterval(async () => {
 }, 3000); // every 3 seconds
 ```
 
-> This is what we call **short polling**: a call at a periodic interval, and the back end responds immediately.
+> This is what we call **short polling**: a call at a periodic interval, and the BE responds immediately.
 
 [Back to top](#system-design-session-guide)
 
@@ -134,14 +134,14 @@ setInterval(async () => {
 
 **Best for:** Near real-time updates, when sockets cannot be used.
 
-**Example from the session:** the back end `/longpoll` waits for about 5 seconds to see if any data comes in that time, and after 5 seconds it processes the data and sends it. On the client, the call is made **recursively** (a new request fires as soon as the previous one completes).
+**Example from the session:** the BE `/longpoll` waits for about 5 seconds to see if any data comes in that time, and after 5 seconds it processes the data and sends it. On the client, the call is made **recursively** (a new request fires as soon as the previous one completes).
 
 **Short polling vs long polling:**
 
 | | Short Polling | Long Polling |
 |---|---|---|
 | Client call pattern | Fixed interval | **Recursive**, no interval |
-| Back end behavior | Responds immediately | **Waits** for data, then responds |
+| BE behavior | Responds immediately | **Waits** for data, then responds |
 
 [Back to top](#system-design-session-guide)
 
@@ -152,13 +152,13 @@ setInterval(async () => {
 > **Rule of thumb:** Use polling when you have a **predictable amount of time** in which data is supposed to arrive.
 
 **Example from the session:**
-- There are 10 different systems in the back end, and all of them need to process something
+- There are 10 different systems in the BE, and all of them need to process something
 - **10 seconds is the maximum SLA** (the delay the product or business has agreed on)
 - Something may complete in 2 seconds, so you poll every 1 or 2 seconds, and **after 10 seconds you stop**
 
 **Right use case:** the call happens in a **finite interval of time**, not indefinitely.
 
-**Wrong use case:** you have to keep calling throughout the life cycle of the application. If it is indefinite, a lot of calls go to the back end and there is no predictability. **Figure out a better strategy** (the techniques that follow).
+**Wrong use case:** you have to keep calling throughout the life cycle of the application. If it is indefinite, a lot of calls go to the BE and there is no predictability. **Figure out a better strategy** (the techniques that follow).
 
 [Back to top](#system-design-session-guide)
 
@@ -178,13 +178,13 @@ setInterval(async () => {
 - Live feeds
 - Notifications
 
-**Back end (illustrative):**
+**BE (illustrative):**
 - Set the content type to **`text/event-stream`**. This tells the browser it is not a one-time response, but a stream of data
 - Set the connection to **keep-alive**, so the HTTP connection between client and server is kept alive
 - Every interval (e.g., every 2 seconds) check whether anything changed, and send it
 
 ```js
-// Back end (illustrative)
+// BE (illustrative)
 res.setHeader('Content-Type', 'text/event-stream');
 res.setHeader('Connection', 'keep-alive');
 setInterval(() => {
@@ -192,7 +192,7 @@ setInterval(() => {
 }, 2000);
 ```
 
-> The session noted this is **representation only**. In reality, for stock prices the back end might call the stock exchange API every ~200 ms. If the price changed, it informs the client. If not, it does not.
+> The session noted this is **representation only**. In reality, for stock prices the BE might call the stock exchange API every ~200 ms. If the price changed, it informs the client. If not, it does not.
 
 **Client:**
 - Subscribes to the **event source** (`/events`)
@@ -209,7 +209,7 @@ source.onmessage = (e) => {
 
 **Important points:**
 - **Nothing here is library-driven.** The event source and the event emission are all built into the vanilla way of building applications
-- Client need not keep calling the back end (unlike polling)
+- Client need not keep calling the BE (unlike polling)
 - Very well suited when there is a lot of real-time communication, but **only the server sends data**
 
 [Back to top](#system-design-session-guide)
@@ -233,9 +233,9 @@ So far, everything has been one-way. Think of **SSE as a pipe that only works to
 
 **Notes:**
 - Unlike SSE, WebSockets are **not a built-in capability**. You subscribe to that protocol or install packages
-- Back end example: a server opened on **port 8080**. On connection established, when someone sends a message it can send the message to the user. You can add a delay or make it real-time
+- BE example: a server opened on **port 8080**. On connection established, when someone sends a message it can send the message to the user. You can add a delay or make it real-time
 - Client example: the client opens the socket, receives messages, and can also send them
-- There is still a back end layer in the middle, but you get a **pipe** where two clients can message each other quickly
+- There is still a BE layer in the middle, but you get a **pipe** where two clients can message each other quickly
 
 [Back to top](#system-design-session-guide)
 
@@ -301,7 +301,7 @@ Interviews often ask this kind of analytical question.
 
 **LinkedIn vs WhatsApp example:**
 - Chatting on LinkedIn is rare and mostly official (maybe less than 10% of your communication). SSE may look like a lucrative option there
-- But LinkedIn may need to show whether you are **online or not**, or pass other information to the back end, so internally it may still opt for WebSockets
+- But LinkedIn may need to show whether you are **online or not**, or pass other information to the BE, so internally it may still opt for WebSockets
 
 **Zerodha example:** a good use case for SSE because the client need not send anything. But there may be hidden reasons (a lot of information expected from the client) that mean they use sockets.
 
@@ -311,7 +311,7 @@ Interviews often ask this kind of analytical question.
 - In the machine coding round, similar things have been asked
 - Coding is not hard as long as you know how to make an API call at a periodic interval
 - **Sockets are a very common interview question:** build a simple chatting UI where user A sends a message to user B, and user B receives it using the socket
-- Sometimes the socket back end is already ready, sometimes you are allowed to search online to set up a simple node server
+- Sometimes the socket BE is already ready, sometimes you are allowed to search online to set up a simple node server
 - These can be on the **difficult end** for a 1-hour interview. They are more common in **1.5 to 2 hour** interviews
 - **Probability estimate from the speaker:** about **70 to 80%** it is asked in **high-level design rounds**, and **20 to 30%** in coding rounds
 - Be aware of **both the implementation and the theory**
@@ -433,19 +433,19 @@ Technically **anything that is accessible to your website**:
 - **Typical motive example:** during big sales (e.g., e-commerce), a competitor wants to **make the site slow or down**. The intent is not to take money directly. If Company A's site is slow and Company B's is fast, Company B benefits
 
 ##### Reflected XSS
-- Applies when the **back end itself frames the HTML response** (common in server-driven UI websites where the client has minimal control over what is rendered)
+- Applies when the **BE itself frames the HTML response** (common in server-driven UI websites where the client has minimal control over what is rendered)
 - Example: on error, the server puts `${error}` directly into the HTML body. If the attacker changes the error input to `<script>alert('hacked')</script>`, the client renders it and the script executes
 - **Why it is a good attack:** if you are on the checkout page about to place an order and get a pop-up saying "your site is hacked", you will immediately stop the transaction. That can **stop a genuine user from buying**
 - Or it could do something actually malicious: take the user's cookie and send it to the attacker's website, so the attacker has a **session token** and can make more API calls
 - **How to avoid:** protection at **both places**
-  - Back end should **sanitize** the error message before sending it
+  - BE should **sanitize** the error message before sending it
   - Client can sanitize too, or use a framework like React
 
 ##### DOM-based XSS
 - An extension of what we just saw, but **no server is involved**
 - The client injects whatever information it gathered from the user (or server) **without sanitizing or checking the content**, causing unintended effects on the UI
 
-> **Also note:** Scripts can be ingested into your **back end** too. Without proper protection, that code can execute, slow down your site, or pull information and pass it to the attacker.
+> **Also note:** Scripts can be ingested into your **BE** too. Without proper protection, that code can execute, slow down your site, or pull information and pass it to the attacker.
 
 [Back to top](#system-design-session-guide)
 
@@ -487,8 +487,8 @@ Technically **anything that is accessible to your website**:
 
 **3. Double submit cookie pattern**
 - The server sends the same token in **two places**: in the cookie, and in the request header/body
-- The back end checks that **both are the same** when processing
-- Instead of sending the token only during login, it can be sent for every request-response pattern, and the client sends both tokens for the back end to evaluate
+- The BE checks that **both are the same** when processing
+- Instead of sending the token only during login, it can be sent for every request-response pattern, and the client sends both tokens for the BE to evaluate
 
 > **Honest caveat from the speaker:** If your token itself gets compromised, it doesn't matter whether you have two tokens or ten. If you think your token can be protected well, you don't need the multiple-token approach.
 
@@ -574,7 +574,7 @@ if (window.top !== window) {
 - Store things in the session, not anything persistent
 
 #### Are `SameSite` cookie and CSP headers set on the server side?
-Yes. `SameSite` is a property sent when the back end sends the cookie to the client. Whatever value is sent is what the browser uses.
+Yes. `SameSite` is a property sent when the BE sends the cookie to the client. Whatever value is sent is what the browser uses.
 
 [Back to top](#system-design-session-guide)
 
@@ -695,8 +695,8 @@ The most basic video player is just the HTML **`<video>` tag** with a source. Bu
 3. **Ensure security** for the player
 
 **How video gets delivered (simplified):**
-- The back end has **multiple copies of the video across different resolutions**
-- The client continuously interacts with the back end and **sends the user's internet speed over short periods**
+- The BE has **multiple copies of the video across different resolutions**
+- The client continuously interacts with the BE and **sends the user's internet speed over short periods**
 - Depending on the speed, the **next chunk** of video is sent. Good internet means the best quality. If speed drops, it serves lesser quality
 - YouTube does **not** send the complete video to the client. It sends a **series of chunks** that are **assembled on the client** so the video can be played
 - A lot of **encryption and decryption** is used. The same stream going to another player may not play, since it is custom-made logic
@@ -761,7 +761,7 @@ The most basic video player is just the HTML **`<video>` tag** with a source. Bu
 #### Why not the others?
 
 - **Polling:** can be OK for a short period, but what if comments stop while thousands are still watching? If you keep polling, you **simply waste resources**. **If you do not know when to end it, don't use polling.** If you know when to end it, polling is a good option
-- **SSE:** not that bad. Technically, anything that can be built with sockets can be built with SSE. But **your message also needs to be broadcast to everyone**, so the back end must take your message and broadcast it to all, including yourself. Sockets fit better
+- **SSE:** not that bad. Technically, anything that can be built with sockets can be built with SSE. But **your message also needs to be broadcast to everyone**, so the BE must take your message and broadcast it to all, including yourself. Sockets fit better
 
 **Other notes:**
 - **Older comments before the user joins:** YouTube loads only **a few previous messages**, not millions
@@ -802,7 +802,7 @@ The most basic video player is just the HTML **`<video>` tag** with a source. Bu
 
 ### 4.9 Playing Video Based on Internet Speed
 
-- When internet speed changes, **get the new chunk from the back end** at the appropriate quality
+- When internet speed changes, **get the new chunk from the BE** at the appropriate quality
 - The speaker has no official source, but for **one video uploaded, there are at least ~200 different videos made** depending on resolution, quality, and so on
 - YouTube serves the right one depending on your request
 
