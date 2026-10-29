@@ -702,6 +702,65 @@ The most basic video player is just the HTML **`<video>` tag** with a source. Bu
 - A lot of **encryption and decryption** is used. The same stream going to another player may not play, since it is custom-made logic
 - You can use **HLS** or **DASH** protocols as well
 
+# Reference Guide: Media Streaming Protocols & Codecs
+
+## 1. DASH (Dynamic Adaptive Streaming over HTTP)
+**DASH**, also known as MPEG-DASH, is an **international open-standard adaptive bitrate streaming protocol** developed by the Moving Picture Experts Group (MPEG). It enables high-quality media delivery over the internet by dynamically adjusting video and audio quality in real time based on a viewer's network conditions and device performance.
+
+### How DASH Works
+Instead of streaming a video as one continuous, massive file, DASH relies on a multi-step segmentation process:
+* **Encoding:** The source video is compressed into multiple quality levels (different bitrates and resolutions, such as 1080p, 720p, and 480p).
+* **Segmentation:** Each resolution version is sliced into small, independent chunks (typically 2 to 10 seconds long).
+* **The Manifest File (.MPD):** An XML-based index file called the **Media Presentation Description (MPD)** is created. It acts as a roadmap, telling the video player what quality options exist and where to fetch the corresponding chunks.
+* **Client-Driven Adaptation:** The video player reads the MPD file and monitors the user's internet speed. If the connection is fast, it fetches the highest quality chunks; if the bandwidth drops, it automatically requests lower-quality chunks for the next few seconds to prevent buffering.
+
+### Core Benefits
+* **Codec Agnostic:** Not tied to specific compression technologies. It supports an array of audio and video codecs, including H.264, H.265 (HEVC), VP9, and AV1.
+* **Standard Infrastructure:** Operates over standard HTTP/HTTPS protocols (ports 80 and 443), utilizing existing web servers and Content Delivery Networks (CDNs).
+* **Universal Compatibility:** Broad native or library-supported compatibility across web browsers, Android devices, Windows systems, and Smart TVs.
+* **Robust Content Protection:** Native integration with multiple Digital Rights Management (DRM) platforms (e.g., Google Widevine, Microsoft PlayReady).
+
+### DASH vs. HLS
+
+| Feature | DASH (MPEG-DASH) | HLS (HTTP Live Streaming) |
+| :--- | :--- | :--- |
+| **Developer** | MPEG (International Open Standard) | Apple |
+| **Compatibility** | Universal (Web, Android, Smart TVs, Windows) | Native to Apple ecosystem (cross-platform via libraries) |
+| **Codec Support** | Codec-agnostic (H.264, H.265, VP9, AV1, etc.) | Historically restricted (primarily H.264 and H.265) |
+| **Manifest Format**| `.mpd` (XML format) | `.m3u8` (Plain text/playlist format) |
+| **Standard Low Latency** | LL-DASH (<3 seconds) | LL-HLS (~3 seconds) |
+
+---
+
+## 2. Codecs
+A **codec**—short for **co**mpressor/**dec**ompressor (or **co**der/**dec**oder)—is a device or computer program that **shrinks large video, audio, or data files for faster transmission and expands them for playback**. 
+
+### Why Codecs Are Essential
+Raw, uncompressed digital video and audio files are incredibly large. Codecs solve this problem through two core actions:
+* **Compression (Encoding):** Strips out redundant or invisible data to make the file small enough to travel over the internet or fit on a hard drive.
+* **Decompression (Decoding):** Unpacks the file in real-time when you hit play so it can display correctly on your screen and speakers.
+
+### The Two Types of Compression
+* **Lossy Codecs:** Discard data that the human eye or ear can't easily perceive to achieve massive reductions in file size. Used by almost all streaming platforms.
+* **Lossless Codecs:** Reduce file size without losing any original quality or data. Used primarily in professional editing, archiving, and high-end audio.
+
+### Common Codecs in Use Today
+
+| Codec Type | Codec Name | Common Uses | Key Characteristic |
+| :--- | :--- | :--- | :--- |
+| **Video** | **H.264 (AVC)** | Blu-rays, YouTube, older streaming | Universal compatibility, but less efficient for 4K. |
+| **Video** | **H.265 (HEVC)** | Netflix, 4K streaming, iPhones | Highly efficient; cuts H.264 file sizes in half. |
+| **Video** | **AV1 / VP9** | YouTube, Netflix, modern web browsers | Open-source, royalty-free codecs for high-res web video. |
+| **Audio** | **AAC** | Apple Music, YouTube, default web audio | High-quality lossy audio standard. |
+| **Audio** | **MP3** | Legacy digital music tracks | Universal compatibility, but older technology. |
+| **Audio** | **FLAC** | Audiophile music distribution | Lossless audio format; large file size but perfect quality. |
+
+### Codecs vs. Containers
+* **The Codec:** The actual mathematical formula used to compress the video and audio tracks *inside* the file. 
+* **The Container:** The "wrapper" or box (like MP4, MKV, or MOV) that holds those video and audio tracks together, along with subtitles and metadata.
+* *Analogy:* The container is the cardboard shipping box, and the codecs are the efficient vacuum-sealed bags packing the clothes inside.
+
+
 [Back to top](#system-design-session-guide)
 
 ---
