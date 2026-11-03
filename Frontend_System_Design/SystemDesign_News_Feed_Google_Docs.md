@@ -1,0 +1,720 @@
+# System Design Guide: News Feed and Google Docs
+
+> **Scope of this guide:** Two system design problems from the session. **Part 1** is the News Feed application (Instagram, Twitter/X, Facebook). **Part 2** is Google Docs, an online concurrent rich-editing platform.
+> Every Mermaid diagram below is something you can redraw quickly in an interview (the speaker's advice: *"I want you guys to draw in interviews... at least try to draw as quick as I'm drawing."*).
+
+---
+
+## Table of Contents
+
+**Part 1: News Feed Application**
+1. [Requirements](#1-requirements)
+2. [Rendering Strategy: CSR vs SSR](#2-rendering-strategy-csr-vs-ssr)
+3. [Infinite Scrolling and Pagination](#3-infinite-scrolling-and-pagination)
+4. [Asset Optimization](#4-asset-optimization)
+   - [4.1 Uploading Efficiently](#41-uploading-efficiently)
+   - [4.2 Downloading Efficiently](#42-downloading-efficiently)
+   - [4.3 WebP Image Format](#43-webp-image-format)
+5. [Virtualized List](#5-virtualized-list)
+6. [Shareable Links and Link Preview](#6-shareable-links-and-link-preview)
+
+**Part 2: Google Docs**
+
+7. [Concurrent Editing: The Core Problem](#7-concurrent-editing-the-core-problem)
+8. [Operational Transformation](#8-operational-transformation)
+9. [Differential Synchronization](#9-differential-synchronization)
+10. [CRDT](#10-crdt)
+11. [OT vs CRDT: Which One to Pick](#11-ot-vs-crdt-which-one-to-pick)
+12. [Storing Rich Text](#12-storing-rich-text)
+13. [Version History](#13-version-history)
+14. [Add-ons](#14-add-ons)
+15. [Interview Quick Reference](#15-interview-quick-reference)
+
+---
+
+# Part 1: News Feed Application
+
+## 1. Requirements
+
+All modern social media applications (**Instagram, Twitter/X, Facebook**) fall into the News Feed category. Start by gathering requirements.
+
+### Functional Requirements
+
+- **View post** (open a post and see it in detail)
+- **Create / read post**
+- **Edit post**
+- **Like, comment, share**
+- **Infinite scroll**: 100% important. The speaker calls it one of the best features in social media; people never run out of scrolling.
+- **Support for links and mentions**
+- **Share and link preview**: picked out as a separate requirement because it gets discussed on its own (see [Section 6](#6-shareable-links-and-link-preview))
+- **Notifications**
+- **Feed customization** (predominantly backend work), including **recommendations** (recommended posts)
+- **Ads**: *"1% most important part of making revenue"*
+- **Support for long-lived sessions**: primarily **authorization and authentication**
+- **Chat**: very important feature
+- **Search**
+- **Settings**
+
+### Non-Functional Requirements
+
+Non-functionals largely remain the same across the majority of platforms. Certain things become important for some platforms and may not matter for others.
+
+- **Performance**: should load fast
+- **Caching**
+- **Globalization and localization**
+- **Accessibility**
+- **Responsiveness**
+- **Virtualization** (added by a participant; covered in [Section 5](#5-virtualized-list))
+
+### What a Feed Looks Like
+
+Each post has some **content** (image, text, audio or video) and three capabilities that most platforms offer for sure: **like, share, comment**. (Save and others exist, but the speaker keeps it minimal.)
+
+```mermaid
+flowchart TD
+    Feed["My Feed"] --> P1["Post 1"]
+    Feed --> P2["Post 2"]
+    Feed --> P3["Post 3"]
+    P1 --> C1["Content: image / text / audio / video"]
+    P1 --> A1["Actions: Like | Share | Comment"]
+```
+
+---
+
+## 2. Rendering Strategy: CSR vs SSR
+
+### The Question
+
+> Will the feed be **client side rendering (CSR)** or **server side rendering (SSR)**?
+
+**Quick refresher**
+- **Client side rendering:** a complete bundle comes to the client and the client builds the page.
+- **Server side rendering:** the server renders the page (like a Next.js sort of application) and sends it to the client.
+
+**Why SEO matters here:** Social media sites are *very high SEO-demanding*. If some event is happening (a protest, a movie release), the first thing social media expects is that when it is searched on Google, that feed/page shows up. **More hits means more ads.**
+
+### What the Class Said
+- Client side: responsiveness, virtualization, accessibility
+- Server side: SEO, Google crawlers give better ranking
+- **Hybrid:** SSR for the initial load, then client side after that (React attaches event listeners, infinite scroll stays on the client to avoid server round trips)
+
+### The Speaker's Answer
+
+The question was about **my personal feed**, not a general public feed.
+
+| Type of page | Render how | Why |
+|---|---|---|
+| **Personal feed**, settings (private, personal) | **Client side rendering** | Not SEO-heavy; it is only for you. Initial boot is slightly slow, but everything after is much quicker. Offloads processing from the server to the client. |
+| **Public pages** (a creator's page, public feed, trending, recommended) | **Server side rendering** | Public in nature, SEO-heavy. |
+
+> **Takeaway:** *Everything public goes server side render. Everything private goes client side render.* A complete application cannot be done in one way, so the hybrid view from the class is right at the application level.
+
+```mermaid
+flowchart LR
+    U["User opens site"] --> Q{"Is the page public or private?"}
+    Q -->|"Public: creator page, trending, recommended"| SSR["Server Side Render - SEO friendly"]
+    Q -->|"Private: personal feed, settings"| CSR["Client Side Render - download bundle, render on UI"]
+```
+
+---
+
+## 3. Infinite Scrolling and Pagination
+
+Infinite scrolling lets people keep scrolling until they run out of time. There are two approaches. **Know both, and know when to use which.**
+
+### 3.1 Index-Based Pagination
+
+You send a **page index** (and count) to the server to get data.
+
+- Page 0 → get content → hit the end → request page 1 → hit the end → request page 2 → and so on
+- API failure → show an error. No content → show a "no content" message.
+- Very simple, and many applications already use it.
+
+### The Problem with Index-Based Pagination
+
+In a news feed the **data is dynamic**. New posts are added at the **beginning** of the database (most recent first), so everything **slides down**.
+
+**Worked example (10 posts per page):**
+
+| Page | Posts |
+|---|---|
+| Page 0 | 0 to 10 |
+| Page 1 | 11 to 20 |
+| Page 2 | 21 to 30 |
+
+1. You request **page 0** → you get posts 0 to 10.
+2. Before you scroll through those, **10 new posts arrive** at the top.
+3. The old 0 to 10 slides and becomes 11 to 20.
+4. You request **page 1** → you get 11 to 20, which is mostly **the same posts you already have**.
+
+Not necessarily all 10 are duplicates (some may still be old, some may have become new), but **there is a chance some posts are duplicates**. The client has to filter duplicates before rendering.
+
+Another way to say it (from the speaker): there were 100 posts, 10 more came in, now 110. What you already received as 1 to 10 has become 11 to 20. You ask for page 1 and technically you are getting page 0 content again.
+
+```mermaid
+flowchart TD
+    A["Request page 0: server returns posts 0 to 10"] --> B["10 new posts added at the top of the DB"]
+    B --> C["Old posts 0 to 10 slide to 11 to 20"]
+    C --> D["Request page 1: server returns 11 to 20"]
+    D --> E["Client receives DUPLICATE posts"]
+    E --> F["Client must filter duplicates before rendering"]
+```
+
+### 3.2 Cursor-Based Pagination (the Solution)
+
+Instead of maintaining an **index**, you maintain a **hash (cursor)**.
+
+- The server gives the client a cursor with the first 10 posts.
+- On the next request the client sends **the current cursor**, not a page number.
+- The server **decodes the cursor**, knows what it has already sent, and decides what to send next (the next 10 posts after wherever the cursor ended, or even something earlier; implementation varies by system, architect and product).
+- The client is **not asking for a specific page** within the database.
+
+**What is "the hash"?** It can be anything the client and server agree on. It is a **contract between client and server**:
+- As simple as: *"send me the last post ID and I'll send you the next posts from there."*
+- Or as informative as: the hash itself holds the **starting post ID and ending post ID** already sent.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C->>S: Request first posts (no cursor)
+    S-->>C: First 10 posts + cursor
+    Note over S: Meanwhile new posts arrive at the top
+    C->>S: Request next posts with cursor
+    Note over S: Decode cursor, know what was already sent
+    S-->>C: Next 10 posts + new cursor
+```
+
+### 3.3 When to Use Which
+
+| | Index-based | Cursor-based |
+|---|---|---|
+| **Best for** | Data that does **not change very frequently** (for example, many e-commerce apps, where a slight delay is okay even though new sellers keep adding data) | Data that **changes at a rapid pace** (social media feed) |
+| **Sends** | Page number / index | Hash (cursor) |
+| **Weakness** | Duplicates / sliding when data is added at the top | Needs a client-server contract for the cursor |
+
+### 3.4 When Do You Fetch the Next Page? (Threshold)
+
+Do **not** wait until the very end, otherwise the user sees a delay.
+
+- Set a **threshold**: treat the visible area as 100% and **trigger the next call at ~80%** (the most common number).
+- Modern list libraries support this: **virtualized lists, and FlatList in React Native**, give you a prop for the threshold, often as a percentage.
+- Some applications even **download the first few pages upfront**, and fetch the next set at a 70 to 80% threshold.
+
+---
+
+## 4. Asset Optimization
+
+A social media app has a lot of **multimedia content**, so uploading and downloading it **efficiently** is a core problem. (The speaker keeps the storage side out of scope and looks at it from the **client's point of view**, using an image as the example.)
+
+> The naive way is: upload the image, the backend gives you a URL, and you show it. *Nothing is optimized there.*
+
+### 4.1 Uploading Efficiently
+
+**Step 1: Set a size limit on the client.**
+Every portal that takes files should have a maximum size (the example is **10 MB** for a social media image). A movie-upload portal would obviously allow more, but there is always a limit.
+
+**Step 2: Choose how to send the file.**
+Depending on your architecture, convert the media into some form and send it: a **file, a stream, or Base64**.
+
+**Step 3: Chunking.**
+Divide the content and upload the pieces.
+
+- A 10 MB image becomes **10 requests of 1 MB each**
+- Upload them **in parallel / concurrently**
+- The rate at which content is uploaded can be faster than a single 10 MB upload
+
+```mermaid
+flowchart LR
+    IMG["Image 10 MB"] --> SPLIT["Client splits into chunks"]
+    SPLIT --> R1["Request 1 - 1 MB"]
+    SPLIT --> R2["Request 2 - 1 MB"]
+    SPLIT --> R3["..."]
+    SPLIT --> R10["Request 10 - 1 MB"]
+    R1 --> SRV["Server"]
+    R2 --> SRV
+    R3 --> SRV
+    R10 --> SRV
+    SRV --> MERGE["Check all chunks received, then combine into one image"]
+    MERGE --> STORE["Store image"]
+```
+
+### Problems with Chunking
+
+> **1. Chunks arrive in any order.**
+> Chunk 1 may come first, then chunk 10, then chunk 5 and 6. You cannot fully control the order.
+>
+> **2. The server becomes slightly stateful.**
+> Every request must carry metadata like **image ID, chunk number, total chunks** (for example, `imageId = 1`, `chunk = 2`, `total = 10`). On every chunk, the server must **check whether all chunks have arrived**. It cannot treat any chunk as "the last one".
+>
+> **3. Chunk loss.**
+> If a chunk is lost (for example, the 5th and 7th fail), the backend cannot build the image.
+>
+> **4. Extra backend overhead.**
+> The backend must **combine all chunks** into one image and then store it. This did not exist before.
+>
+> **5. Partial failure.**
+> A single upload is *success or failure*. With chunks you can have **partial failure**.
+>
+> **6. Zombie chunks.**
+> Say 8 of 10 chunks were uploaded and 2 failed. The client is told the upload failed, but the 8 chunks are still sitting in the backend with **no reference** to any final image. The backend needs a **cleanup job** (for example, at the end of every day, check for chunks with no image reference; or store chunks temporarily in a **chunk table** and delete them if the rest never arrive).
+
+**Is it worth it?** Yes, when success is the case ~99% of the time and failure is rare. The slight backend overhead is fine for a social media application because it gives a **better user experience**.
+
+### 4.2 Downloading Efficiently
+
+Use a **CDN**.
+
+**What the class said about why:**
+- Get data from the **nearest servers** (geographical advantage)
+- **Cache assets**
+- Images and text render faster
+- Its only purpose is to **deliver content**
+
+**The speaker's explanation:**
+- Think of a CDN as a **dump for storing multimedia content** (images, video, etc.).
+- Your internal servers only keep a **reference** (for example, an **image ID** stored in the CDN).
+- The client gets the content **directly from the CDN, without interacting with the actual server**.
+- You are **offloading** work from your main server to a server meant only for serving content. If the primary servers did this too, they would be **overloaded**.
+
+```mermaid
+flowchart LR
+    CL["Client"] -->|"API requests"| MS["Main Server - keeps only image ID reference"]
+    CL -->|"Image requests"| CDN["CDN - stores images, video, audio"]
+    MS -.->|"reference to content"| CDN
+```
+
+**Because the CDN is a dedicated module, you can do a lot of optimization on it:**
+
+- **Customization via URL parameters.** Many CDNs let the client pass dimensions and styles, for example:
+  ```text
+  1234.png?width=200&height=200&rounded=true
+  ```
+- **Pre-generate variations.** As soon as an image is uploaded, the CDN can create **200 to 300 variations** (for example 200 x 200, 1000 x 1000, high resolution, low resolution) and keep them, so when the client asks it serves **instantly**. The client need not do modifications.
+- **Transform for device capabilities.** Pass the **internet speed and device capability**, and the CDN gives a **high quality image on a fast connection** and a **lower quality image on a slow one** (and the reverse).
+- **Lossless compression** when storing (raised by a participant, and the speaker agreed it can be done with a CDN).
+
+```mermaid
+flowchart TD
+    UP["Image uploaded once"] --> CDN["CDN"]
+    CDN --> V1["200 x 200"]
+    CDN --> V2["1000 x 1000"]
+    CDN --> V3["High resolution"]
+    CDN --> V4["Low resolution"]
+    REQ["Client request with width, height, speed, device"] --> CDN
+    CDN -->|"picks the right variation"| RES["Right image to client"]
+```
+
+> **Important:** *Having a CDN itself is not going to solve the problem.* It will not make your application super fast. It offloads some load from the main server, which gives some lead, but that alone is not sufficient. **Employ optimization techniques on top of the CDN.**
+
+> **Career story (Swiggy):** Swiggy was paying a huge cost to a third-party service that stored images and served them by width, height, round corner and so on, to millions of users. A staff/principal engineer decided to build this in-house. It took about **3 to 4 months**, saved a **few millions yearly**, and he got promoted quickly through multiple levels.
+> **Lesson:** Pick intuitive problems (like cost savings) that nobody is asking you to solve, and solve them. *"People who do what everybody is doing will stay where everybody stays."*
+
+### 4.3 WebP Image Format
+
+**WebP** is an image format proposed by **Google**, a very lightweight format used for **faster delivery**. Many image-intensive applications use it.
+
+**How the speaker explains it (in a nutshell):**
+- In a typical image, a majority of pixels carry the **same information** (for example, a big white area where, out of 100 pixels, ~90 are the same value).
+- Instead of storing every pixel, WebP stores the **information about pixels that are similar in nature**.
+- Modern browsers can **decode** this and rebuild the image.
+- Result: **downloads faster**. (Rendering still varies by size, device and resolution.)
+
+> The speaker notes this is a mid-level explanation; there is a lot more engineering underneath if you want to go deeper.
+
+---
+
+## 5. Virtualized List
+
+### The Problem
+A normal list (using `.map` and adding a `div` per post) **keeps adding entries** as you scroll. After 100 posts, there are 100 elements stored in **RAM**. Scrolling up and down is fast (already in hot memory), but beyond a point you consume more and more memory and the **application slows down**.
+
+### How a Virtualized List Works
+- The list is only **as tall as the screen**, for example it can render only **3 posts**.
+- There are only **3 cards** in reality. When the first card leaves the viewport, the **fourth post replaces the content** of that card. Scroll back up and the content is replaced again.
+- The user *sees* lots of posts, but physically only a few cards exist.
+
+| | Normal list | Virtualized list |
+|---|---|---|
+| **Memory** | Keeps growing (everything stored on RAM) | Only a few cards |
+| **Speed** | Fast to scroll back (already rendered) | Can be **slower** because of **repainting / latency** |
+| **Use when** | Small lists | **Large lists**, and when you also need operations like **search and filtering** |
+
+```mermaid
+flowchart TD
+    subgraph Viewport
+        C1["Card 1"]
+        C2["Card 2"]
+        C3["Card 3"]
+    end
+    DATA["Large data: Post 1 ... Post N"] -->|"only visible window"| Viewport
+    Viewport -->|"scroll down: first card leaves, Post 4 content replaces it"| Viewport
+```
+
+> Many virtualized list packages exist; the speaker has no personal preference. Any can be used.
+
+---
+
+## 6. Shareable Links and Link Preview
+
+### The Question
+> You share a link to a (public) post. Someone clicks it. **How do you make sure the link loads quickly?**
+
+*(Asked to the speaker by a junior engineer in a team-fitment interview round. It looks trivial but works as a **tiebreaker** in interviews.)*
+
+### The Normal (Slow) Flow
+Load the whole website (for example, `facebook.com`) → then take the post ID from the URL → send it to the server → server returns the content. A large bundle like Facebook's takes time whether it is CSR or SSR, and a lot of "to-do things" happen before the app even loads.
+
+### The Efficient Approach
+Create a **separate, smaller bundle** dedicated to opening shared links.
+
+- Think of a micro-frontend-like setup: one bundle is **dedicated to link previews**.
+- When the link is opened, load **only that bundle** and render the link content directly (like a video player or image player as part of that bundle).
+- When the user then clicks **Home, Settings** and so on, **download the additional bundles** and become the full application.
+- The speaker also notes: the **server can detect that it is a shared-link URL and server side render** the page, then the client continues with client side rendering once the user navigates.
+- **Trade-off:** later navigation may take slightly longer, but **the link preview becomes faster**.
+
+```mermaid
+flowchart TD
+    L["User clicks shared link"] --> D{"Is this a shared-link URL?"}
+    D -->|"Yes"| B1["Load small link-preview bundle + server rendered page"]
+    B1 --> SHOW["Content shows quickly"]
+    SHOW --> NAV{"User clicks Home / Settings?"}
+    NAV -->|"Yes"| B2["Download additional bundles - full application"]
+    D -->|"No: normal visit"| FULL["Load full application"]
+```
+
+### Follow-up Q&A from the Session
+
+- **"Do we share the bundle along with the link?"** No. You only share the link. While *loading*, you use the minified bundle for that sharable content.
+- **"What if the data changes after the link is shared (for example likes go from 5 to 10)?"** When the link is opened, the server forms the page **from scratch**, so it is realistic. A **preview** may not be fully realistic at times (a trade-off), but if it is **server side rendered**, the preview can be **near real-time**.
+
+### SEO-Friendly (Named) Links
+
+For SEO-heavy links, **do not use only hardcoded IDs**.
+
+- Bad: `.../link=1234`
+- Better: a **named link**, such as a title like *"what is the best front-end tutorial online"*, which technically still points to an ID.
+
+**Apollo.io interview example (deep nested user journey):** Click a user → URL has `id=1234`; click a place (say Bengaluru) → `id=5678`. The interviewer's point was **SEO**: when an SEO bot comes, it cannot identify anything from `1234` / `5678`. **Pass the actual name** in the URL (or **name plus ID**). If you only use IDs, SEO suffers because the crawler cannot identify what is in the URL unless it opens and analyzes the page completely.
+
+### Recommended Reading
+The **GreatFrontEnd** articles on **Type-ahead** and **Social Media Feed** (very extensively explained).
+
+---
+
+# Part 2: Google Docs
+
+## 7. Concurrent Editing: The Core Problem
+
+**Google Docs** is an online **concurrent rich-editing** platform. First thing to solve: **concurrent editing**. (The same problem shows up in code sandbox / online coding editor platforms and anywhere concurrent writing happens.)
+
+### The Problem
+Two (or many) people can edit the **same document at the same time**, sometimes on the **same line**, sometimes on different lines (and one person hitting Enter changes line numbers for everyone). Everyone should **see the updates** others are making.
+
+*(In class, ~11 people opened a shared doc and typed on line 2 at the same time to feel the problem.)*
+
+### The Easiest Solution: Locking (and Why It's Rejected)
+Lock the page for a slice of time per user (for example **30 seconds each**). With 7 users, you wait about 2 minutes for your turn; in practice there may be only 2 to 3 editors.
+
+- Relatively easy and straightforward
+- **But** Google envisions editing like a **real conversation**: you do not wait for the other person to finish before speaking; you pause, resume, interrupt. *"You should be able to edit anytime, not restricted by locking."*
+
+### Three Techniques
+1. **Operational Transformation (OT)**
+2. **Conflict-free Replicated Data Types (CRDT)**
+3. **Differential Synchronization** (1 and 3 are pretty much the same idea in a different way; 2 is different)
+
+These matter beyond Google Docs, for any online collaborative system.
+
+---
+
+## 8. Operational Transformation
+
+> **If you remember only one technique for interviews, make it this one.** It is a very common interview question and can be asked in multiple places, wherever concurrent editing happens.
+
+### How It Works
+- Clients send **operations** (for example, "insert X at position Y") to a **central server**.
+- Typing is **debounced**, and requests keep going to the server over **sockets** (realtime two-way connection; the client sends, the server acknowledges).
+- The server processes **one operation at a time (atomic)**, so even "simultaneous" edits arrive with a microsecond gap.
+- If an operation refers to a position that has **already changed**, the server **transforms** the operation to the right position, applies it, and **broadcasts** the result to everyone.
+
+### Worked Example
+Initial document: `Hello`
+- **User A:** inserts `" world"` at position **5** (end)
+- **User B:** inserts `"!!!"` at position **5** (end)
+
+1. Server receives A's operation → document becomes `Hello world`.
+2. Server receives B's operation → "insert `!!!` at 5". But position 5 **is no longer valid**, because " world" was inserted.
+3. Server **transforms** the operation: insert at **position 11** (after "world").
+4. Result: `Hello world!!!` → **broadcast to both users**.
+
+```mermaid
+sequenceDiagram
+    participant A as User A
+    participant S as Collaboration Server
+    participant B as User B
+    Note over A,B: Initial document is Hello
+    A->>S: Insert world at position 5
+    B->>S: Insert exclamations at position 5
+    Note over S: Applies A first. Document becomes Hello world
+    Note over S: B position 5 is now invalid. Transform to position 11
+    S->>S: Apply transformed operation
+    S-->>A: Broadcast Hello world with exclamations
+    S-->>B: Broadcast Hello world with exclamations
+```
+
+### Key Points
+- There is **no absolute right or wrong** here. Two people edit the same document at the same time, and the conflict has to be resolved into something meaningful.
+- The server checks **history**: has this index been changed just before my request came? If yes, shift the operation by the change.
+- If User B is unhappy (wanted the `!!!` right after "Hello"), User B can **delete and re-insert**, and that gets reflected.
+- **Race condition / ordering:** whichever operation **reaches the server first is honored**. If the exclamation reaches first (network latency), then World is inserted after it. *"There's no intelligence here"* (Google may add intelligence). It is just an **algorithm**.
+- The algorithm is **public**.
+- Google is **not officially announcing** which technique it uses. This is one of the very common techniques.
+- Complex content (tables, images, rich text) is more involved. The simple example is enough for an interview.
+
+### Scalability Question: 3,000 to 5,000 Editors?
+- Every product should have an **upper limit** (like the character limit on Google search), so Google likely has a limit on concurrent editors.
+- With a thousand people editing at once, results become **gibberish**. The algorithm can only do its best.
+- **That is not a system problem.** It is a **choice made by the person who shared the document** (like setting your phone's time two days off and getting unintended effects).
+- In an interview you *can* ask about the limit (concurrent writers, max characters). For example, in **type-ahead** you ask the **maximum characters** to **safeguard your system**, not to restrict the user. But **your solution should not be affected** by that.
+
+---
+
+## 9. Differential Synchronization
+
+**Diff is sync.** Same idea as OT but **different in what is sent.**
+
+| | OT | Differential Synchronization |
+|---|---|---|
+| **Sends** | The **operation**: what to change and **where** ("insert world at 5") | The **difference** between document versions / the **new state** ("replace `Hello` with `Hello world`") |
+| **Server** | Transforms and applies operations | Takes the instance, **checks differences, and applies them** |
+
+**Flow:**
+1. Initial document: `Hello`
+2. User edits it locally → `Hello world`
+3. Client **computes the difference** (`world` is new)
+4. Sends the difference/new instance to the server
+5. Server applies the diff → broadcasts to everyone
+
+```mermaid
+flowchart LR
+    A["Local edit: Hello becomes Hello world"] --> B["Client computes difference"]
+    B --> C["Send difference or new instance to server"]
+    C --> D["Server checks differences and applies them"]
+    D --> E["Broadcast to all clients"]
+```
+
+**Nuance:** If another client sends a different version (for example `Hello!`), the server may **override** or reconcile, so there are nuances. At a high level it is *replacing the existing content using the difference*.
+
+> **When NOT to use it:** **Definitely not for concurrent editing like Google Docs.** In concurrent editing you keep inserting and deleting at different positions, and **you cannot send the complete document every time**. It is meant for places where content **does not change very commonly**. *(The speaker said he'd give a good use case "in a while", but it does not appear in the transcript.)*
+
+---
+
+## 10. CRDT
+
+**CRDT = Conflict-free Replicated Data Type.**
+
+### Key Difference from OT
+- **OT needs a common server.** Clients send operations to the server, and the server builds the new string. It is *not* server-free.
+- **CRDT is suitable for serverless communication.** Multiple clients talk to each other (for example via **WebRTC**), and the **server is not governing the operations**. Changes still **sync to the server sporadically/periodically** so the server keeps a **unique copy**.
+- If a central server is involved, you can just use OT. CRDT's primary intent is the **no central server** case.
+
+### How It Works
+1. **Every character has a unique ID** (not just a position). `H=1, E=2, L=3, L=4, O=5`.
+2. Each client also has a **client ID** (for example user 1 to 11).
+3. New characters get IDs **generated locally** by the client (some ID generation logic, maybe a hash).
+4. Operations **reference character IDs, not positions**, so **no transformation is required**. Both operations stay valid because they reference a unique character ID.
+5. **Non-conflicting edits** (different places): everyone just applies them. ID 10 refers to the same place in every copy.
+6. **Conflicting edits** (same position): apply **deterministic ordering**. Use the **client ID / weight** to decide who goes first.
+
+### Worked Example
+Document `Hello`, every character has an ID.
+- **Client A** inserts `world` after character ID 5
+- **Client B** inserts `!` after character ID 5
+
+Both reference ID 5, so there is a conflict. **Deterministic ordering:** if Client A's ID is less than Client B's, A's content goes first → `Hello world!`.
+
+```mermaid
+flowchart TD
+    S["Document Hello - each character has a unique ID"] --> A["Client A: insert world after ID 5"]
+    S --> B["Client B: insert exclamation after ID 5"]
+    A --> M["Broadcast to all peers - WebRTC, no central server"]
+    B --> M
+    M --> T["No transformation needed - operations reference character IDs"]
+    T --> R{"Same position conflict?"}
+    R -->|"No"| OK["Apply directly"]
+    R -->|"Yes"| W["Compare client ID or weight - smaller ID gets priority"]
+    W --> F["Final: Hello world with exclamation"]
+    F -.->|"periodic sync"| SRV["Server keeps a copy"]
+```
+
+### Notes
+- The tie-break rule is **hypothetical**. Lower ID wins, higher ID wins, or **weighted** (for example the document owner gets more weight). Any technique works.
+- **Advantages:** less overhead on the server. **Cost:** slight extra cost from WebRTC and similar communication, which is fine when the number of editors is small.
+- **Real-world examples (as given by the speaker):** **Figma and Notion**.
+- Complicated to understand. Nobody in the room has implemented or invented these algorithms; they are only taking the simplest reference examples.
+
+> **One-line summary:** *CRDT is serverless concurrent editing. Every character and every client has an ID. Non-conflicting changes are just broadcast and applied. Conflicting changes are resolved by client weight. The server gets a periodic copy.*
+
+---
+
+## 11. OT vs CRDT: Which One to Pick
+
+There is **no fixed rule**, and most systems do not officially say which technique they use. These are inferences.
+
+| Choose | When |
+|---|---|
+| **OT** | **Document editing** like Google Docs: edited by a few people, concurrently, requests sent very often. A **server governs all changes**, so **data loss is very low**. Also pick OT if **even a small piece of information cannot be lost**. |
+| **CRDT** | You want to **reduce server overhead**, you want concurrent editing, **and a small data loss is acceptable**. |
+
+**Why the data-loss point?** Clients communicating among themselves via WebRTC rely on **UDP under the hood**, where packet delivery is **not guaranteed** (unlike TCP).
+
+- **Figma-like design tools:** small data loss is acceptable. A few pixels of an image getting lost is still fine; you can still visualize it, or request the lost packet again later.
+- **Textual documents:** everything should be **atomic**. If you do not get some content, the document may become unreadable.
+
+*(Compare with the Spotify analogy raised in class: a lost packet means a tiny glitch in audio that is still fine overall.)*
+
+```mermaid
+flowchart TD
+    Q{"Can any data be lost?"} -->|"No, text must be exact"| OT["Use OT - server governed"]
+    Q -->|"Small loss is acceptable"| Q2{"Want less server overhead?"}
+    Q2 -->|"Yes"| CRDT["Use CRDT - peer to peer"]
+    Q2 -->|"No"| OT
+```
+
+---
+
+## 12. Storing Rich Text
+
+### The Problem
+Rich text means **bold, underline, strikethrough, indentation, tabs, spaces, tables, images**. You cannot just save plain text. **How do you store it on the server and surface it back exactly as the user typed it?**
+
+### The Answer
+There is no right or wrong technique. **Client and server agree on a "language"**: the client sends content in that language, the server saves it and returns it, and the client **knows how to render it**.
+
+**Option 1: Custom JSON**
+```json
+{
+  "type": "paragraph",
+  "text": "Hello world",
+  "style": { "bold": true }
+}
+```
+- Add predefined styles (bold true/false). You can send only **explicit** styles if some are implicit.
+- Tables: describe rows and cells.
+- Images: give a **path, width and height**.
+
+**Option 2: Markdown**
+- Like GitHub README: `**text**` for bold, `#` for headings, and so on.
+- Even one big markdown document can be saved instead of one big JSON.
+- (Shown live by exporting a Notion page to `.md`.)
+- Any editor that understands markdown can render it as is.
+
+**Option 3: Your own format**
+- Any format your client and server understand. You might not need a very detailed one, only some portions. There are also many existing frameworks to refer to.
+
+*(A participant also described sending **metadata/escape sequences** such as `\t` for tab, `\n` for new line, and RTF-like `\b` for bold, which are interpreted at render time. The speaker confirmed this is right.)*
+
+```mermaid
+flowchart LR
+    U["User formats text: bold, underline, tables, images"] --> C["Client converts to agreed format - JSON or Markdown"]
+    C --> S["Server stores it"]
+    S --> R["Server returns the same format"]
+    R --> C2["Client knows how to render it"]
+    C2 --> UI["Same rich text on screen"]
+```
+
+---
+
+## 13. Version History
+
+### The Problem
+Google Docs shows a **version history** (for example, empty at 4:43, content added at 4:45, more later). When you click a version, you see the document as it was.
+
+### Approaches
+- **Naive:** every click sends `documentId + versionId` and the backend returns the **whole document** for that version. Problem: could be a **big document with tiny changes**, which wastes data.
+- **Better:** send **only the differences** (what changed and where), and the client applies that change to render the version. Same idea as OT: *"explain where to make the change and the client will make that change."*
+
+> **Takeaway:** Version history is **another use case of the concurrent-editing technique** (OT / CRDT style operations), just **shown in history format** instead of live editing.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Client
+    participant S as Server
+    U->>C: Click a version in history
+    C->>S: Request version with documentId and versionId
+    S-->>C: Only the differences / operations for that change
+    C->>C: Apply the changes to render that version
+    C-->>U: Document as of that version
+```
+
+---
+
+## 14. Add-ons
+
+### The Question
+Google Docs has add-ons (fancy tables, PDF viewer, an **indexing add-on** that indexes 100 pages and shows an index on top so you can jump to a page). It is a **web** product, not a Java project running on your system. **How are add-ons added?**
+
+### The Answer
+- Add-ons **cannot give a capability the product inherently does not have**. They **use the capabilities the platform provides**. (Same way **Bootstrap** only makes styling easier but you can write it yourself, and **Redux** makes state management simpler but React supports state management already.)
+- The platform **exposes APIs**. These are **not backend APIs**. They are **methods the tool exposes** that add-ons consume.
+  - Example 1: an API/listener that fires **every time a line changes**.
+  - Example 2: an API to **change the color of a character**.
+- Flow: you type `#todo` → the add-on gets a **trigger** that a change happened → it calls the platform's API to **change the color**.
+- The add-on's **bundle** is loaded with the Google Docs bundle, contains those functions, and holds **listeners** that the platform exposes.
+- **Risk:** conflicting plugins can cause unintended effects because both try to do the same thing at the same time.
+- A **VS Code** extension (a comment editor that highlights `TODO`) is a similar idea.
+
+> **One-line summary:** *Add-ons are nothing but the use of capabilities that the platform provides. The platform could do it itself, but it cannot build every feature users request, so it lets people contribute.*
+
+**Side note from the speaker:** Some creators have built extensions for Google Docs, Microsoft Excel and Shopify, charging **$1 to $5 per download**, and earned **very large amounts**. Building add-ons is relatively easier now and worth considering.
+
+```mermaid
+flowchart LR
+    P["Platform: Google Docs"] -->|"exposes APIs and listeners"| API["Platform APIs"]
+    AD["Add-on bundle"] -->|"subscribes to events: line changed"| API
+    AD -->|"calls APIs: change color, add index"| API
+    API --> DOC["Document updates"]
+```
+
+---
+
+## 15. Interview Quick Reference
+
+### Part 1: News Feed Cheat Sheet
+
+| Topic | One-line answer |
+|---|---|
+| **Rendering** | Public/SEO pages → **SSR**. Personal feed/settings → **CSR**. Overall: hybrid. |
+| **Pagination** | **Cursor (hash)** for fast-changing feeds. **Index** for slow-changing data (e-commerce). |
+| **Next page trigger** | At about **80% scroll threshold**, or prefetch a few pages. |
+| **Upload** | Client size limit → file/stream/Base64 → **chunk** and upload in parallel. |
+| **Chunk pitfalls** | Out-of-order, stateful server, chunk loss, merge overhead, partial failure, **zombie chunks** + cleanup job. |
+| **Download** | **CDN** + variations, URL params (width, height), device/network aware quality. |
+| **Image format** | **WebP** (lightweight, faster delivery). |
+| **Rendering long lists** | **Virtualized list** (few cards, content replaced; memory friendly, repaint cost). |
+| **Shared link** | Small **dedicated bundle** + server rendering for quick load; accept preview trade-off; use **named URLs** for SEO. |
+
+### Part 2: Google Docs Cheat Sheet
+
+| Technique | Sends | Needs server? | Best for |
+|---|---|---|---|
+| **OT** | Operations (what + where); server **transforms** positions | **Yes** | Document editing, **no data loss** (**know this one for sure**) |
+| **Differential Sync** | Difference / new instance; server applies | Yes | Content that does **not change often**. **Not** for concurrent editing |
+| **CRDT** | Operations referencing **character IDs** + client weight for ties | **No** (periodic sync only) | Less server load, small data loss acceptable (Figma, Notion examples) |
+
+| Topic | One-line answer |
+|---|---|
+| **Why not locking?** | Editing should feel like a conversation, not turn-based. |
+| **Real-time channel** | **Sockets** (debounced client requests, server acknowledges and broadcasts). |
+| **Too many editors** | Not a system problem; ask about limits only to safeguard the system. |
+| **Rich text storage** | Agreed **language** between client and server: **JSON**, **Markdown**, or custom. |
+| **Version history** | Send **differences** only, same technique as concurrent editing. |
+| **Add-ons** | Platform-exposed **APIs and listeners**; add-ons cannot add what the platform lacks. |
+
+### Homework from the Speaker
+- Read the **GreatFrontEnd** articles on **Type-ahead** and **Social Media Feed**.
+- Watch the speaker's earlier **Google Docs design video** (and the 2008 YouTube video where Google explains operational transformation).
+- If a doubt comes up later, message the speaker and discuss.
